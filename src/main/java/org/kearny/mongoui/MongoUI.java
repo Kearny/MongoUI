@@ -1,10 +1,12 @@
 package org.kearny.mongoui;
 
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientURI;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import javafx.application.Application;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 
@@ -16,7 +18,7 @@ public class MongoUI
         extends Application {
 
     private MongoClient mongoClient;
-    private TableView tableView = new TableView();
+    private TableView<DocumentData> tableView = new TableView();
     private List<String> databaseNames;
     private List<String> databaseCollectionNames;
     private final Label bottomLabel = new Label();
@@ -36,13 +38,12 @@ public class MongoUI
 
     private TreeView<String> getMongoTreeView() {
         var mongoUrl = "mongodb://localhost:27017";
-        MongoClientURI connectionString = new MongoClientURI(mongoUrl);
-        mongoClient = new MongoClient(connectionString);
+        mongoClient = MongoClients.create(mongoUrl);
         databaseNames = StreamSupport.stream(mongoClient.listDatabaseNames().spliterator(), false)
-                                     .collect(Collectors.toUnmodifiableList());
+                                     .toList();
         var databaseNameTreeItems = databaseNames.stream()
                                                  .map(TreeItem::new)
-                                                 .collect(Collectors.toUnmodifiableList());
+                                                 .toList();
 
         TreeItem<String> root = new TreeItem<>(mongoUrl);
         root.setExpanded(true);
@@ -71,29 +72,42 @@ public class MongoUI
         var collectionName = treeItem.getValue();
 
         var collection = mongoClient.getDatabase(databaseName).getCollection(collectionName);
-        var count = collection.count();
-        bottomLabel.setText("Nombre de documents dans la collection: " + count);
+        var documentCount = collection.countDocuments();
+        bottomLabel.setText("Nombre de documents dans la collection: " + documentCount);
 
         var documents = StreamSupport.stream(collection.find().spliterator(), true)
-                                     .collect(Collectors.toUnmodifiableList());
+                                     .toList();
         var documentSample = documents.stream().findFirst().get();
 
         var tableColumns = documentSample.keySet().stream()
-                                         .map(TableColumn::new)
-                                         .collect(Collectors.toUnmodifiableList());
+                .map(key -> {
+                    var column = new TableColumn<DocumentData, Object>(key);
+                    column.setCellValueFactory(
+                            cellData -> new ReadOnlyObjectWrapper<>(cellData.getValue().get(key))
+                    );
 
-        tableView.getColumns().addAll(tableColumns);
+                    return column;
+                })
+                .toList();
 
-        tableView.getItems().add(documents);
+
+        tableView.getColumns().clear();
+        tableColumns.forEach(column -> {
+            column.setCellValueFactory(new PropertyValueFactory<>(column.getText()));
+            tableView.getColumns().add(column);
+        });
+
+        tableView.getItems().clear();
+        documents.forEach(document -> tableView.getItems().add(new DocumentData(document)));
     }
 
     private void loadDatabaseCollections(TreeItem<String> treeItem) {
         var database = mongoClient.getDatabase(treeItem.getValue());
         databaseCollectionNames = StreamSupport.stream(database.listCollectionNames().spliterator(), false)
-                                               .collect(Collectors.toUnmodifiableList());
+                                               .toList();
         var collectionNameTreeItems = StreamSupport.stream(database.listCollectionNames().spliterator(), false)
                                                    .map(TreeItem::new)
-                                                   .collect(Collectors.toUnmodifiableList());
+                                                   .toList();
 
         treeItem.getChildren().clear();
         treeItem.getChildren().addAll(collectionNameTreeItems);
@@ -101,27 +115,5 @@ public class MongoUI
 
     public static void main(String[] args) {
         launch();
-    }
-
-    private class ColumnValue {
-
-        private String column;
-        private Object value;
-
-        public String getColumn() {
-            return column;
-        }
-
-        public void setColumn(String column) {
-            this.column = column;
-        }
-
-        public Object getValue() {
-            return value;
-        }
-
-        public void setValue(Object value) {
-            this.value = value;
-        }
     }
 }

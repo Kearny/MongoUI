@@ -1,6 +1,6 @@
 plugins {
     id 'application'
-    id 'org.openjfx.javafxplugin' version '0.0.9'
+    id 'org.openjfx.javafxplugin' version '0.0.10'
 }
 
 repositories {
@@ -8,12 +8,22 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.mongodb:mongodb-driver:3.4.3'
+    implementation 'org.mongodb:mongodb-driver-sync:4.9.0'
 }
 
 javafx {
-    version = "15.0.1"
+    version = "20"
     modules = [ 'javafx.controls', 'javafx.fxml' ]
 }
 
 mainClassName = 'org.kearny.mongoui.MongoUI'
+
+run {
+    doFirst {
+        jvmArgs = [
+                '--module-path', System.getenv('PATH_TO_FX'),
+                '--add-modules', 'javafx.controls,javafx.fxml',
+                '--add-exports', 'javafx.graphics/com.sun.javafx.sg.prism=ALL-UNNAMED'
+        ]
+    }
+}
