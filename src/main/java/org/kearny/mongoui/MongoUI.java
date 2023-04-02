@@ -42,7 +42,6 @@ public class MongoUI
     }
 
 
-
     private TreeView<String> getMongoTreeView() {
         var mongoUrl = "mongodb://localhost:27017";
         mongoClient = MongoClients.create(mongoUrl);
@@ -72,6 +71,18 @@ public class MongoUI
         });
 
         return treeView;
+    }
+
+    private void loadDatabaseCollections(TreeItem<String> treeItem) {
+        var database = mongoClient.getDatabase(treeItem.getValue());
+        databaseCollectionNames = StreamSupport.stream(database.listCollectionNames().spliterator(), false)
+                .toList();
+        var collectionNameTreeItems = StreamSupport.stream(database.listCollectionNames().spliterator(), false)
+                .map(TreeItem::new)
+                .toList();
+
+        treeItem.getChildren().clear();
+        treeItem.getChildren().addAll(collectionNameTreeItems);
     }
 
     private void loadCollectionData(TreeItem<String> treeItem) {
@@ -114,7 +125,6 @@ public class MongoUI
             return tableView;
         });
 
-
         // Ajoutez le contrôle Pagination à la mise en page
         var borderPane = (BorderPane) tableView.getScene().getRoot();
         borderPane.setCenter(pagination);
@@ -140,15 +150,4 @@ public class MongoUI
     }
 
 
-    private void loadDatabaseCollections(TreeItem<String> treeItem) {
-        var database = mongoClient.getDatabase(treeItem.getValue());
-        databaseCollectionNames = StreamSupport.stream(database.listCollectionNames().spliterator(), false)
-                .toList();
-        var collectionNameTreeItems = StreamSupport.stream(database.listCollectionNames().spliterator(), false)
-                .map(TreeItem::new)
-                .toList();
-
-        treeItem.getChildren().clear();
-        treeItem.getChildren().addAll(collectionNameTreeItems);
-    }
 }
